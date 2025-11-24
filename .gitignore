@@ -45,15 +45,6 @@ Thumbs.db
 .env
 .env.local
 
-# Data files (if large)
-*.csv
-*.parquet
-*.h5
-*.hdf5
-data/
-*.db
-*.sqlite
-
 # API keys and secrets
 *_key.txt
 *_secret.txt
