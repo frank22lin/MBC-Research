@@ -11,5 +11,5 @@ Research repository for the MBC Research competition.
 
 Install dependencies:
 
-pip install -r requirements.txt## Data
+pip install -r requirements.txt
 
