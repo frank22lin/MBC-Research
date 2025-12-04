@@ -10,6 +10,8 @@ import pandas as pd
 def load_aligned_data(
     market_cap_path: Path | str,
     price_path: Path | str,
+    start_date: pd.Timestamp | None = None,
+    log_returns: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load market cap and price data keeping assets available in both sources."""
 
@@ -42,6 +44,14 @@ def load_aligned_data(
     market_caps = market_caps.loc[shared_index]
     prices = prices.loc[shared_index]
     returns = prices.pct_change()
+    
+    if start_date is not None:
+        returns = returns.loc[start_date:]
+        market_caps = market_caps.loc[start_date:]
+        prices = prices.loc[start_date:]
+
+    if log_returns:
+        returns = np.log(1 + returns)
 
     return market_caps, prices, returns
 
@@ -129,3 +139,45 @@ def summarize_returns(returns: pd.Series, label: str, annual_factor: int = 365) 
     print(f"  Annualized Volatility: {std * np.sqrt(annual_factor):.2%}\n")
 
 
+def compare_strategy_metrics(returns_dict, risk_free_rate=0.0, annual_factor=365):
+    """
+    Compare Sharpe Ratio, Annualized Volatility, Annualized Mean Return, and Max Drawdown
+    of multiple strategy return series.
+
+    Parameters:
+    - returns_dict: dict of {label: pd.Series} of daily returns (simple returns)
+    - risk_free_rate: (float) risk-free rate per period (e.g., 0.0 for 0% daily)
+    - annual_factor: (int) number of periods in a year (e.g., 252 for trading days, 365 for calendar days)
+
+    Returns:
+    - pd.DataFrame with metrics for each strategy
+    """
+
+    metrics = []
+
+    for label, returns in returns_dict.items():
+        r = returns.dropna()
+        mean = r.mean()
+        std = r.std()
+        # Sharpe uses excess return per unit risk, annualized
+        sharpe = ((mean - risk_free_rate) * annual_factor) / (std * np.sqrt(annual_factor)) if std > 0 else np.nan
+        annual_return = mean * annual_factor
+        annual_vol = std * np.sqrt(annual_factor)
+
+        # Compute cumulative wealth and drawdowns
+        wealth = (1 + r).cumprod()
+        running_max = wealth.cummax()
+        drawdown = (wealth - running_max) / running_max
+        max_dd = drawdown.min()
+
+        metrics.append({
+            "Strategy": label,
+            "Sharpe": sharpe,
+            "Annual Mean Return": annual_return,
+            "Annual Volatility": annual_vol,
+            "Max Drawdown": max_dd
+        })
+
+    df = pd.DataFrame(metrics)
+    df = df.set_index("Strategy")
+    return df
